@@ -4,62 +4,15 @@ import re
 from jinja2 import Template
 import base64
 
-st.set_page_config(page_title=" Legal Parser", layout="wide")
-
-# --- Styling to mimic LegitQuest ---
-st.markdown("""
-    <style>
-        .block-container {
-            padding: 2rem 3rem;
-        }
-        .css-18e3th9 {
-            padding: 1rem 1rem 10rem;
-        }
-        .css-10trblm {
-            color: #1f2937;
-            font-size: 2rem;
-            font-weight: 700;
-        }
-        .search-section {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 2rem;
-        }
-        .result-card {
-            background: #fff;
-            padding: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-bottom: 1rem;
-        }
-        .result-title {
-            color: #1d4ed8;
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        .court-info {
-            color: #059669;
-            font-size: 0.9rem;
-        }
-        .result-meta {
-            color: #64748b;
-            font-size: 0.85rem;
-            margin-top: 8px;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("##  Legal Judgment Formatter")
-st.markdown("Convert court judgment PDFs into formatted, styled HTML outputs.")
-
-# --- HTML Template ---
+# =====================
+#  HTML TEMPLATE
+# =====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{{ case_title }}</title>
+  <title>{{ petitioner }} v. {{ respondent }}</title>
   <style>
     body {
       font-family: 'Georgia', serif;
@@ -121,46 +74,94 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
- 
 
+# =====================
+#  UTIL FUNCTIONS
+# =====================
 def extract_text_from_pdf(pdf_file):
+    """Extract full text from PDF."""
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-    return "".join([page.get_text() for page in doc]).strip()
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text()
+    return full_text.strip()
+
+def extract_metadata(text):
+    """Extract petitioner, respondent, court name from judgment text."""
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    petitioner = "Petitioner"
+    respondent = "Respondent"
+
+    # Look in first 20 lines for case title
+    for i in range(min(20, len(lines))):
+        line = lines[i]
+
+        # Same line case
+        if re.search(r"\b(v\.|vs\.|versus)\b", line, re.IGNORECASE):
+            parts = re.split(r"\b(v\.|vs\.|versus)\b", line, flags=re.IGNORECASE)
+            if len(parts) >= 3:
+                petitioner = parts[0].strip(" ,;:-")
+                respondent = parts[-1].strip(" ,;:-")
+                break
+
+        # Multi-line case
+        if i + 1 < len(lines) and re.match(r"(?i)versus|vs\.|v\.", lines[i+1]):
+            petitioner = line.strip(" ,;:-")
+            respondent = lines[i+2].strip(" ,;:-") if i + 2 < len(lines) else "Respondent"
+            break
+
+    # Extract court name
+    court_name = ""
+    for i in range(min(30, len(lines))):
+        if "court" in lines[i].lower():
+            court_name = lines[i]
+            break
+
+    return {
+        "petitioner": petitioner,
+        "respondent": respondent,
+        "court_name": court_name or "Court Name",
+        "appeal_number": "",
+        "date": "",
+        "judge": ""
+    }
 
 def auto_split_into_points(text):
+    """Split text into numbered points."""
     raw_points = re.split(r'\n{2,}|(?<=[.])\s*\n+', text)
-    return [p.strip().replace('\n', ' ') for p in raw_points if len(p.strip()) > 30]
+    points = [p.strip().replace('\n', ' ') for p in raw_points if len(p.strip()) > 30]
+    return points
 
-def render_html(points):
-    metadata = {
-        "petitioner": "WAKIA AFRIN (MINOR)",
-        "respondent": "M/S NATIONAL INSURANCE CO. LTD.",
-        "court_name": "SUPREME COURT OF INDIA",
-        "appeal_number": "SLP (C) Nos. 15447-48 of 2024",
-        "date": "01-08-2025",
-        "judge": "SUDHANSHU DHULIA, J. & K. VINOD CHANDRAN, J.",
-        "points": points
-    }
-    return Template(HTML_TEMPLATE).render(**metadata)
+def render_html(meta, points):
+    """Render HTML using template."""
+    template = Template(HTML_TEMPLATE)
+    return template.render(**meta, points=points)
 
 def download_button(html_content, filename):
+    """Generate a download link for HTML file."""
     b64 = base64.b64encode(html_content.encode()).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{filename}" style="font-weight:600; color:#2563eb">📥 Download HTML</a>'
+    href = f'<a href="data:text/html;base64,{b64}" download="{filename}">📥 Download HTML</a>'
+    return href
 
-# --- UI ---
-st.markdown("### 📁 Upload Your Judgment PDF")
-pdf_file = st.file_uploader("Select a legal judgment PDF", type=["pdf"])
+# =====================
+#  STREAMLIT UI
+# =====================
+st.set_page_config(page_title="Legal Judgment Formatter", layout="wide")
+st.title("📄 Legal Judgment Formatter")
+st.markdown("Convert your legal PDF judgment into a styled HTML report with **Petitioner vs Respondent** detected automatically.")
+
+pdf_file = st.file_uploader("Upload Judgment PDF", type=["pdf"])
 
 if pdf_file:
     st.success("✅ PDF uploaded successfully!")
-    if st.button("🛠 Generate HTML Report"):
-        with st.spinner("Processing judgment..."):
+    if st.button("Generate HTML Report"):
+        with st.spinner("⏳ Extracting text and generating HTML..."):
             text = extract_text_from_pdf(pdf_file)
+            meta = extract_metadata(text)
             points = auto_split_into_points(text)
-            html = render_html(points)
-
-        st.markdown("### 📄 Extracted Judgment Preview")
-        st.components.v1.html(html, height=600, scrolling=True)
-
+            html = render_html(meta, points)
+        
         st.markdown("---")
+        st.subheader("📝 Extracted Judgment Preview")
+        st.components.v1.html(html, height=900, scrolling=True)  # Bigger preview window
         st.markdown(download_button(html, "judgment_output.html"), unsafe_allow_html=True)
