@@ -5,9 +5,6 @@ from jinja2 import Template
 import base64
 from datetime import datetime
 
-# =====================
-#  ENHANCED HTML TEMPLATE - IMPROVED FORMATTING WITH CITATION STYLES
-# =====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -1033,8 +1030,8 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    st.title("Supreme Court Judgment Formatter (FIXED)")
-    st.markdown("🔧 **Issues Fixed**: Citation paragraph styling + Complete sub-numbering content preservation")
+    st.title(" Judgment Formatter ")
+    st.markdown("")
     
     # Enhanced sidebar with debug options
     with st.sidebar:
@@ -1092,9 +1089,8 @@ def main():
     
     # File uploader
     pdf_file = st.file_uploader(
-        "Upload Supreme Court Judgment PDF", 
+        "Upload Judgment PDF", 
         type=["pdf"], 
-        help="Upload PDF - Fixed version handles citations and sub-numbering correctly"
     )
     
     if pdf_file:
@@ -1103,7 +1099,7 @@ def main():
         col1, col2, col3 = st.columns([2, 2, 3])
         
         with col1:
-            if st.button("🚀 Process with Fixes", type="primary", help="Apply fixes for citations and sub-numbering"):
+            if st.button("🚀 Process ", type="primary", help="Apply fixes for citations and sub-numbering"):
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
@@ -1139,7 +1135,7 @@ def main():
                     
                     # Step 6: Store results with debug info
                     progress_bar.progress(100)
-                    status_text.text("✅ Processing complete with fixes applied!")
+                    status_text.text("✅ Processing complete !")
                     
                     # Store in session state
                     st.session_state.html_content = html_content
@@ -1157,7 +1153,7 @@ def main():
                     st.session_state.citation_count = citation_count
                     st.session_state.sub_points_count = sub_points_count
                     
-                    st.success("🎉 Document processed successfully with all fixes applied!")
+                    st.success("🎉 Document processed successfully !")
                     
                 except Exception as e:
                     st.error(f"❌ Error processing document: {str(e)}")
@@ -1326,43 +1322,5 @@ def main():
                 height=preview_height, 
                 scrolling=True
             )
-        
-        # Technical details
-        st.markdown("---")
-        st.subheader("🔧 Technical Implementation Details")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            ### Citation Detection Algorithm
-            **Pattern Matching:**
-            - SCC citation patterns: `2024 5 SCC 123`
-            - MANU references: `MANU/SC/2024/456`
-            - AIR citations: `AIR 2024 SC 789`
-            - Case name patterns: `vs.` and `v.`
-            - Legal references: `para`, `supra`, `infra`
-            
-            **Styling Applied:**
-            - 🔵 Blue highlighting for case citations
-            - 🟢 Green highlighting for law sections
-            - 📄 Special background for citation paragraphs
-            """)
-            
-        with col2:
-            st.markdown("""
-            ### Sub-numbering Preservation
-            **Content Collection:**
-            - ✅ Roman numerals: `I.`, `II.`, `III.`, etc.
-            - ✅ Letters: `a.`, `b.`, `c.`, etc.
-            - ✅ Small romans: `i.`, `ii.`, `iii.`, etc.
-            
-            **Multi-line Handling:**
-            - Continuation lines properly merged
-            - Stop conditions at next numbering
-            - Preserve original spacing and formatting
-            - Complete content preservation guaranteed
-            """)
-
 if __name__ == "__main__":
     main()
